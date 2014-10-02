@@ -25,6 +25,8 @@ func GetFileServer(config FileServerConfig) httprouter.Handle {
 	})
 
 	f := func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		w.Header().Set("Cache-Control", "max-age=2592000") // 30 days
+
 		r.URL.Path = ps.ByName("filepath")
 		fileServer.ServeHTTP(w, r)
 	}

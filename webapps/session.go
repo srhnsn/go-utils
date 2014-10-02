@@ -46,6 +46,8 @@ var RequestHandlerFunc http.HandlerFunc = http.HandlerFunc(func(w http.ResponseW
 	setTranslateFuncs(r, data)
 	SetCspHeader(w)
 
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+
 	if !isCsrfValid(r, session) {
 		session.Save(r, w)
 		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
