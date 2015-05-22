@@ -3,6 +3,7 @@ package email
 import (
 	"crypto/tls"
 	"fmt"
+	"net/mail"
 	"net/smtp"
 	"time"
 
@@ -10,10 +11,11 @@ import (
 )
 
 type Email struct {
-	From    string
-	To      string
-	Subject string
-	Text    string
+	From              string
+	To                string
+	Subject           string
+	AdditionalHeaders map[string]string
+	Text              string
 
 	Error chan error
 }
@@ -122,14 +124,33 @@ func connect() (*smtp.Client, error) {
 	return conn, nil
 }
 
+func encodeRFC2047(String string) string {
+	addr := mail.Address{String, ""}
+	str := addr.String()
+	str = str[1 : len(str)-4]
+	return str
+}
+
 func sendEmail(conn *smtp.Client, email Email) error {
 	log.Trace.Printf("Sending email to %s", email.To)
 
-	if err := conn.Mail(emailConfig.From); err != nil {
+	fromParsed, err := mail.ParseAddress(email.From)
+
+	if err != nil {
 		return err
 	}
 
-	if err := conn.Rcpt(email.To); err != nil {
+	toParsed, err := mail.ParseAddress(email.To)
+
+	if err != nil {
+		return err
+	}
+
+	if err := conn.Mail(fromParsed.Address); err != nil {
+		return err
+	}
+
+	if err := conn.Rcpt(toParsed.Address); err != nil {
 		return err
 	}
 
@@ -139,7 +160,28 @@ func sendEmail(conn *smtp.Client, email Email) error {
 		return err
 	}
 
-	_, err = fmt.Fprintf(wc, "Subject: %s\n\n%s", email.Subject, email.Text)
+	headers := map[string]string{
+		"Content-Type": "text/plain; charset=\"utf-8\"",
+		"To":           toParsed.String(),
+		"From":         fromParsed.String(),
+		"Subject":      encodeRFC2047(email.Subject),
+	}
+
+	if email.AdditionalHeaders != nil {
+		for key, value := range email.AdditionalHeaders {
+			headers[key] = value
+		}
+	}
+
+	for key, value := range headers {
+		_, err = fmt.Fprintf(wc, "%s: %s\n", key, value)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = fmt.Fprintf(wc, "\n%s", email.Text)
 
 	if err != nil {
 		return err
