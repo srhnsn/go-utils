@@ -164,7 +164,7 @@ func sendEmail(conn *smtp.Client, email Email) error {
 		"Content-Type": "text/plain; charset=\"utf-8\"",
 		"To":           toParsed.String(),
 		"From":         fromParsed.String(),
-		"Subject":      encodeRFC2047(email.Subject),
+		"Subject":      fmt.Sprintf("=%s=", encodeRFC2047(email.Subject)),
 	}
 
 	if email.AdditionalHeaders != nil {
